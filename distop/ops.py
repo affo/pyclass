@@ -1,6 +1,8 @@
-import pika, logging, json, uuid, math
+import pika, logging, json, uuid, math, socket
 from threading import Thread, Semaphore, Lock
-from distop.server import RPC_QUEUE_NAME
+
+_RPC_QUEUE_NAME = 'rpc_queue'
+_HOSTNAME = socket.gethostname()
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
@@ -144,7 +146,7 @@ class DistOp(object):
 
       self._channel.basic_publish(
         exchange='',
-        routing_key=RPC_QUEUE_NAME,
+        routing_key=_RPC_QUEUE_NAME,
         properties=pika.BasicProperties(
           reply_to=self._q_name,
           correlation_id=corr_id
@@ -163,16 +165,65 @@ class DistOp(object):
     res = self._consumer.get_result()
     return self.gather(res)
 
+class OpExecutor(object):
 
-##### Implementations
-class PowOp(DistOp):
-  OP_NAME = 'pow'
+  def __init__(self, rabbit_host='localhost'):
+    super(OpExecutor, self).__init__()
 
-  def gather(self, partials):
-    no_el = sum([len(p) for p in partials.values()])
-    res = [None for _ in xrange(no_el)]
+    # pika stuff
+    self._connection = pika.BlockingConnection(
+      pika.ConnectionParameters(rabbit_host)
+    )
+    self._channel = self._connection.channel()
+    q = self._channel.queue_declare(_RPC_QUEUE_NAME)
+    self._q_name = q.method.queue
 
-    for i, chunk in partials.iteritems():
-      res[i:i+len(chunk)] = chunk
+    self._channel.basic_consume(
+      self.on_op,
+      queue=self._q_name
+    )
 
-    return res
+  def on_op(self, ch, method, props, body):
+    body = json.loads(body)
+
+    LOG.info(str(body))
+
+    chunk = body['chunk']
+    i = body['start_index']
+    op_name = body['op_name']
+    params = body['params']
+    corr_id = props.correlation_id
+
+    res = self.execute(op_name, chunk, params)
+
+    self._channel.basic_ack(delivery_tag=method.delivery_tag)
+    response = {
+      'result': res,
+      'start_index': i,
+      'hostname': _HOSTNAME,
+    }
+    self._channel.basic_publish(
+      exchange='',
+      routing_key=props.reply_to,
+      properties=pika.BasicProperties(
+        correlation_id=corr_id
+      ),
+      body=json.dumps(response)
+    )
+
+  def execute(self, op_name, chunk, param_dict):
+    try:
+      op = getattr(self, op_name)
+      res = op(chunk, **param_dict)
+      return res
+    except AttributeError:
+      LOG.error('No implementation for op {}'.format(op_name))
+      return None # should be handled better...
+
+  def run(self):
+    try:
+      self._channel.start_consuming()
+    except KeyboardInterrupt:
+      self._channel.stop_consuming()
+    finally:
+      self._connection.close()

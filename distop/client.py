@@ -1,7 +1,20 @@
-from distop import ops
+from distop.ops import DistOp
 import logging, time, argparse
+
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
+
+class PowOp(DistOp):
+  OP_NAME = 'pow'
+
+  def gather(self, partials):
+    no_el = sum([len(p) for p in partials.values()])
+    res = [None for _ in xrange(no_el)]
+
+    for i, chunk in partials.iteritems():
+      res[i:i+len(chunk)] = chunk
+
+    return res
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
@@ -12,8 +25,8 @@ if __name__ == '__main__':
 
   args = parser.parse_args()
 
-  op = ops.PowOp(
-    data=[1, 2, 3, 4, 5, 6, 7],
+  op = PowOp(
+    data=list(xrange(30)),
     group_size=args.group_size,
     rabbit_host=args.rabbit_host
   )
