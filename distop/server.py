@@ -1,8 +1,9 @@
-from distop.ops import EXCHANGE_NAME, OP_TOPIC, RES_TOPIC
 import pika, logging, json
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
+
+RPC_QUEUE_NAME = 'rpc_queue'
 
 class OpExecutor(object):
 
@@ -14,14 +15,8 @@ class OpExecutor(object):
       pika.ConnectionParameters(rabbit_host)
     )
     self._channel = self._connection.channel()
-    q = self._channel.queue_declare(exclusive=True)
+    q = self._channel.queue_declare(RPC_QUEUE_NAME)
     self._q_name = q.method.queue
-    self._channel.exchange_declare(EXCHANGE_NAME, type='topic')
-    self._channel.queue_bind(
-      exchange=EXCHANGE_NAME,
-      queue=self._q_name,
-      routing_key=OP_TOPIC + '.*'
-    )
 
     self._channel.basic_consume(
       self.on_op,
@@ -35,8 +30,8 @@ class OpExecutor(object):
 
     chunk = body['chunk']
     i = body['start_index']
+    op_name = body['op_name']
     params = body['params']
-    op_name = method.routing_key.split('.')[1]
     corr_id = props.correlation_id
 
     res = self.execute(op_name, chunk, params)
@@ -47,8 +42,8 @@ class OpExecutor(object):
       'start_index': i
     }
     self._channel.basic_publish(
-      exchange=EXCHANGE_NAME,
-      routing_key=RES_TOPIC,
+      exchange='',
+      routing_key=props.reply_to,
       properties=pika.BasicProperties(
         correlation_id=corr_id
       ),

@@ -1,12 +1,9 @@
 import pika, logging, json, uuid, math
 from threading import Thread, Semaphore, Lock
+from distop.server import RPC_QUEUE_NAME
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
-
-EXCHANGE_NAME = 'distop'
-OP_TOPIC = 'ops'
-RES_TOPIC = 'result'
 
 class _Result(object):
   def __init__(self, no_chunks):
@@ -48,10 +45,9 @@ class _Result(object):
 
 class _ConsumerThread(Thread):
 
-  def __init__(self, no_chunks, corr_id, rabbit_host):
+  def __init__(self, no_chunks, corr_id, rabbit_host, reply_queue):
     Thread.__init__(self)
     self._corr_id = corr_id
-    self._ready_sem = Semaphore(0)
     self._res = _Result(no_chunks)
 
     # pika stuff
@@ -59,28 +55,13 @@ class _ConsumerThread(Thread):
       pika.ConnectionParameters(rabbit_host)
     )
     self._channel = self._connection.channel()
-    q = self._channel.queue_declare(exclusive=True)
+    q = self._channel.queue_declare(reply_queue)
     self._q_name = q.method.queue
-    self._channel.exchange_declare(EXCHANGE_NAME, type='topic')
-    self._channel.queue_bind(
-      exchange=EXCHANGE_NAME,
-      queue=self._q_name,
-      routing_key=RES_TOPIC
-    )
 
     self._channel.basic_consume(
       self.on_partial,
       queue=self._q_name
     )
-
-    # consumer is ready, you can run ops now.
-    self._ready_sem.release()
-
-  def wait_until_ready(self):
-    self._ready_sem.acquire()
-    # release the semaphore for further
-    # invokations of wait_until_ready()
-    self._ready_sem.release()
 
   def on_partial(self, ch, method, props, body):
     # sending basic ack
@@ -135,9 +116,8 @@ class DistOp(object):
       pika.ConnectionParameters(rabbit_host)
     )
     self._channel = self._connection.channel()
-    q = self._channel.queue_declare(exclusive=True)
+    q = self._channel.queue_declare('doesntmatter')
     self._q_name = q.method.queue
-    self._channel.exchange_declare(EXCHANGE_NAME, type='topic')
 
   def _chunks(self):
     for i in xrange(0, len(self.data), self.chunk_size):
@@ -148,24 +128,23 @@ class DistOp(object):
     self._consumer = _ConsumerThread(
       self.chunk_number,
       corr_id,
-      self._rabbit_host
+      self._rabbit_host,
+      self._q_name
     )
     self._consumer.start()
-
-    # wait for the consumer to be ready
-    self._consumer.wait_until_ready()
 
     # scattering
     for i, chunk in self._chunks():
       body = {
         'chunk': chunk,
         'start_index': i,
+        'op_name': self.OP_NAME,
         'params': kwargs
       }
 
       self._channel.basic_publish(
-        exchange=EXCHANGE_NAME,
-        routing_key=OP_TOPIC + '.' + self.OP_NAME,
+        exchange='',
+        routing_key=RPC_QUEUE_NAME,
         properties=pika.BasicProperties(
           reply_to=self._q_name,
           correlation_id=corr_id
