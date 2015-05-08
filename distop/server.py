@@ -1,4 +1,6 @@
-import pika, logging, json
+import pika, logging, json, socket
+
+_hostname = socket.gethostname()
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
@@ -39,7 +41,8 @@ class OpExecutor(object):
     self._channel.basic_ack(delivery_tag=method.delivery_tag)
     response = {
       'result': res,
-      'start_index': i
+      'start_index': i,
+      'hostname': _hostname,
     }
     self._channel.basic_publish(
       exchange='',

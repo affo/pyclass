@@ -75,7 +75,7 @@ class _ConsumerThread(Thread):
 
       self._res.add_partial(i, chunk)
 
-      LOG.info('Partial result: index {}, data {} -> {}'.format(i, chunk, self._res.partial))
+      LOG.info('Partial result from {}: index {}, data {} -> {}'.format(body['hostname'], i, chunk, self._res.partial))
 
   def get_result(self):
     res = self._res.get()
@@ -86,7 +86,7 @@ class _ConsumerThread(Thread):
     from pika import exceptions
     try:
       self._channel.start_consuming()
-    except exceptions.ConnectionClosed:
+    except exceptions.ConnectionClosed, RuntimeError:
       pass
 
   def stop(self):
