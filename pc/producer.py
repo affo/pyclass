@@ -4,7 +4,7 @@ logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
 
 connection = pika.BlockingConnection(
-	pika.ConnectionParameters('172.17.42.1')
+	pika.ConnectionParameters()
 )
 channel = connection.channel()
 q = channel.queue_declare('pc')

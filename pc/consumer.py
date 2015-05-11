@@ -12,7 +12,7 @@ def on_message(channel, method_frame, header_frame, body):
   channel.basic_ack(delivery_tag=method_frame.delivery_tag)
 
 connection = pika.BlockingConnection(
-  pika.ConnectionParameters('172.17.42.1')
+  pika.ConnectionParameters()
 )
 channel = connection.channel()
 q = channel.queue_declare('pc')
