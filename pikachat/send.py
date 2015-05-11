@@ -1,16 +1,21 @@
-import pika, random, json
+import pika, random, json, logging, sys
 from pikachat.receive import EXCHANGE_NAME
 
+logging.basicConfig(level=logging.INFO)
+LOG = logging.getLogger(__name__)
+
 if __name__ == '__main__':
-  with open('examples/pikachat/pokenames.json') as file_data:
+  with open('pikachat/pokenames.json') as file_data:
     USERNAMES = json.load(file_data).values()
   username = random.choice(USERNAMES) + str(int(random.random() * 1000))
 
-  print 'Chat entered as ' + username
-  print 'Please execute `python receive.py` to receive messages...'
+  LOG.info('Chat entered as ' + username)
+  LOG.info('Please execute `python receive.py` to receive messages...')
+
+  rabbit_host = sys.argv[1] if len(sys.argv) > 1 else 'localhost'
 
   connection = pika.BlockingConnection(
-    pika.ConnectionParameters('172.17.42.1')
+    pika.ConnectionParameters(rabbit_host)
   )
   channel = connection.channel()
 

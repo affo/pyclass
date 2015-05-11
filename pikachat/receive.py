@@ -1,10 +1,12 @@
-import pika, json
+import pika, json, sys
 
 EXCHANGE_NAME = 'chat'
 
 if __name__ == '__main__':
+  rabbit_host = sys.argv[1] if len(sys.argv) > 1 else 'localhost'
+
   connection = pika.BlockingConnection(
-    pika.ConnectionParameters('172.17.42.1')
+    pika.ConnectionParameters(rabbit_host)
   )
   channel = connection.channel()
 
