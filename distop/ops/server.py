@@ -7,6 +7,22 @@ logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
 
 class OpExecutor(object):
+  '''
+    Class that represents the execution of operations.
+
+    To implement an operation (or more), extend this class and 
+    define a method (or more) containing its logic 
+    --- only named arguments are accepted except from the chunk itself.
+
+    The name of the method that implements an operation 
+    has to match the class attribute `OP_NAME` in the 
+    corresponding implementation of the class `distop.ops.DistOp`.
+
+    The executor consumes on `RPC_QUEUE_NAME` queue,  
+    takes the chunk, processes it (applies the op) 
+    and publishes the result to the exclusive queue 
+    (given in props.reply_to) of the consumer of that precise job.
+  '''
 
   def __init__(self, rabbit_host='localhost'):
     super(OpExecutor, self).__init__()

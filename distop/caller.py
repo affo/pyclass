@@ -33,8 +33,17 @@ if __name__ == '__main__':
 
   op.call(esp=2)
 
+  another_op = PowOp(
+    data=list(xrange(20)),
+    group_size=args.group_size,
+    rabbit_host=args.rabbit_host
+  )
+
+  another_op.call(esp=3)
+
   for _ in xrange(4):
     LOG.info('I sleep because I can get the result when I want to.')
     time.sleep(1)
 
   LOG.info('Result: {}'.format(op.get_result()))
+  LOG.info('Result: {}'.format(another_op.get_result()))
