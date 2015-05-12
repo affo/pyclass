@@ -63,7 +63,7 @@ The RPC call is designed to be _asynchronous_. This means that after calling, th
 ### Implement a new operation
 On the client side:
 
-  1. Create a `client.py` file;
+  1. Create a `caller.py` file;
   2. Add a new class extending `distop.ops.DistOp`;
   3. Override the method `gather` to define how the scattered chunks have to be gathered when returned from servers;
   4. Define a name for the operation, overriding the parameter `OP_NAME`.
@@ -86,11 +86,11 @@ if __name__ == '__main__':
   print op.get_result()
 ```
 
-For a sample `client.py` file, see `distop/client.py`.
+For a sample `caller.py` file, see `distop/caller.py`.
 
 On the server side:
 
-  1. Create a `server.py` file;
+  1. Create a `callee.py` file;
   2. Add a new class extending `distop.ops.OpExecutor`;
   3. Add the real implementation of the operation defining a method whose name has to coincide with the name defined in the client overriding the parameter `OP_NAME`.
 
@@ -112,7 +112,7 @@ if __name__ == '__main__':
   ex.run()
 ```
 
-For a sample `server.py` file, see `distop/server.py`.
+For a sample `callee.py` file, see `distop/callee.py`.
 
 ### Executing
 Servers can be virtualized using Docker:

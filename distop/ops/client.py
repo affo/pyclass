@@ -1,8 +1,6 @@
-import pika, logging, json, uuid, math, socket
+import pika, logging, json, uuid, math
 from threading import Thread, Semaphore, Lock
-
-_RPC_QUEUE_NAME = 'rpc_queue'
-_HOSTNAME = socket.gethostname()
+from distop.ops import RPC_QUEUE_NAME
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
@@ -66,8 +64,6 @@ class _ConsumerThread(Thread):
     )
 
   def on_partial(self, ch, method, props, body):
-    # sending basic ack
-    self._channel.basic_ack(delivery_tag=method.delivery_tag)
 
     if self._corr_id == props.correlation_id:
       body = json.loads(body)
@@ -78,6 +74,9 @@ class _ConsumerThread(Thread):
       self._res.add_partial(i, chunk)
 
       LOG.info('Partial result from {}: index {}, data {} -> {}'.format(body['hostname'], i, chunk, self._res.partial))
+
+      # sending basic ack
+      self._channel.basic_ack(delivery_tag=method.delivery_tag)
 
   def get_result(self):
     res = self._res.get()
@@ -146,7 +145,7 @@ class DistOp(object):
 
       self._channel.basic_publish(
         exchange='',
-        routing_key=_RPC_QUEUE_NAME,
+        routing_key=RPC_QUEUE_NAME,
         properties=pika.BasicProperties(
           reply_to=self._q_name,
           correlation_id=corr_id
@@ -164,66 +163,3 @@ class DistOp(object):
   def get_result(self):
     res = self._consumer.get_result()
     return self.gather(res)
-
-class OpExecutor(object):
-
-  def __init__(self, rabbit_host='localhost'):
-    super(OpExecutor, self).__init__()
-
-    # pika stuff
-    self._connection = pika.BlockingConnection(
-      pika.ConnectionParameters(rabbit_host)
-    )
-    self._channel = self._connection.channel()
-    q = self._channel.queue_declare(_RPC_QUEUE_NAME)
-    self._q_name = q.method.queue
-
-    self._channel.basic_consume(
-      self.on_op,
-      queue=self._q_name
-    )
-
-  def on_op(self, ch, method, props, body):
-    body = json.loads(body)
-
-    LOG.info(str(body))
-
-    chunk = body['chunk']
-    i = body['start_index']
-    op_name = body['op_name']
-    params = body['params']
-    corr_id = props.correlation_id
-
-    res = self.execute(op_name, chunk, params)
-
-    self._channel.basic_ack(delivery_tag=method.delivery_tag)
-    response = {
-      'result': res,
-      'start_index': i,
-      'hostname': _HOSTNAME,
-    }
-    self._channel.basic_publish(
-      exchange='',
-      routing_key=props.reply_to,
-      properties=pika.BasicProperties(
-        correlation_id=corr_id
-      ),
-      body=json.dumps(response)
-    )
-
-  def execute(self, op_name, chunk, param_dict):
-    try:
-      op = getattr(self, op_name)
-      res = op(chunk, **param_dict)
-      return res
-    except AttributeError:
-      LOG.error('No implementation for op {}'.format(op_name))
-      return None # should be handled better...
-
-  def run(self):
-    try:
-      self._channel.start_consuming()
-    except KeyboardInterrupt:
-      self._channel.stop_consuming()
-    finally:
-      self._connection.close()
