@@ -43,6 +43,10 @@ See logs to understand what happens.
 
 The consumer can be started even _after_ the producer, given that messages are persisted to the named queue.
 
+A diagram that describes the application is shown below:
+
+![producer consumer example](img/pc.jpg)
+
 ## `pikachat` example
 A group chat example.
 
@@ -52,6 +56,10 @@ To execute, run a sender and a receiver per host:
   * In another shell: `python pikachat/send.py [RABBIT_HOST]`
 
 In this case we use and _exchange_ in _fanout_ mode to communicate. Exchanges cannot store messages, so, if you start the receiver _after_ the sender, the messages will be lost.
+
+A diagram that describes the application is shown below:
+
+![group chat example](img/pikachat.jpg)
 
 ## `distop` example
 This example shows a scatter/gather (or map/reduce, if you want) operation on a list using RPC calls on a number of servers.  
@@ -123,3 +131,7 @@ Servers can be virtualized using Docker:
   4. stop servers (if you want) with `docker stop $(docker ps | awk '/distop/ {print $1}')`.
 
 Operations 2 and 3 can be inverted, given that messages are saved to queues.
+
+A diagram that describes the application is shown below:
+
+![distributed operation example](img/distop.jpg)
