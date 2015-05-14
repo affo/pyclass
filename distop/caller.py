@@ -31,7 +31,7 @@ if __name__ == '__main__':
     rabbit_host=args.rabbit_host
   )
 
-  op.call(esp=2)
+  first_job_id = op.call(esp=2)
 
   another_op = PowOp(
     data=list(xrange(20)),
@@ -39,11 +39,13 @@ if __name__ == '__main__':
     rabbit_host=args.rabbit_host
   )
 
-  another_op.call(esp=3)
+  second_job_id = another_op.call(esp=3)
 
   for _ in xrange(4):
     LOG.info('I sleep because I can get the result when I want to.')
     time.sleep(1)
 
-  LOG.info('Result: {}'.format(op.get_result()))
+  LOG.info('Result: {}'.format(op.get_result(first_job_id)))
+  # we do not need to pass in second_job_id. We should have
+  # only one job active!
   LOG.info('Result: {}'.format(another_op.get_result()))
