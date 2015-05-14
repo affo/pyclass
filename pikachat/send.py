@@ -19,10 +19,7 @@ if __name__ == '__main__':
   )
   channel = connection.channel()
 
-  queue = channel.queue_declare(exclusive=True)
-  # exclusive = True -> once we disconnect the consumer,
-  # the queue should be deleted.
-  # No need to give it a name. We are only interested
+  # No need to declare a queue! We are only interested
   # in the exchange name! The consumer will be bound
   # to the exchange
   channel.exchange_declare(exchange=EXCHANGE_NAME, type='fanout')
